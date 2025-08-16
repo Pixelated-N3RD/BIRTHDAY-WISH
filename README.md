@@ -81,4 +81,4 @@ In the `<style>` block:
 - **Stale content**: hard refresh (**Ctrl/Cmd+Shift+R**).
 
 ## License
-MIT — use and adapt freely. If you prefer another license, change this section.
+MIT — use and adapt freely. 
