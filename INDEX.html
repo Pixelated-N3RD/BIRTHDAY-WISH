@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>For My Best Friend</title>
+  <meta name="description" content="Two-character conversation that advances on click/tap." />
+  <style>
+    /* ====== Light theme ====== */
+    :root{
+      --ink:#1b1e23;
+      --muted:#6b7280;
+      --bubble:#e7f9e1;        /* soft mint bubble */
+      --bubble-ink:#1b1e23;
+      --ring: rgba(52,211,153,.25);
+      --shadow: 0 12px 30px rgba(0,0,0,.10);
+      --w: min(950px, 92vw);
+
+      /* Background palette */
+      --sky:#ffd6cf;           /* peachy pink */
+      --dot:#f3a9a1;           /* dots */
+      --floor:#ffe1d8;         /* cream/peach floor */
+      --sky-h: min(60vh, 520px); /* height of the sky area; responsive, with max cap */
+    }
+
+    /* Base */
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Inter, Roboto, "Helvetica Neue", Arial;
+      color:var(--ink);
+      background: var(--floor);              /* floor as page base */
+    }
+    /* Top 'sky' with polka dots, pinned and responsive */
+    body::before{
+      content:"";
+      position:fixed; left:0; right:0; top:0; height:var(--sky-h);
+      background:
+        radial-gradient(circle, var(--dot) 2px, transparent 2px) center/28px 28px repeat,
+        var(--sky);
+      z-index:-1; pointer-events:none;
+    }
+
+    img,svg{display:block; max-width:100%}
+
+    /* Layout */
+    .stage{min-height:100%; display:grid; grid-template-rows:auto 1fr auto;}
+    header{padding:18px 0}
+    .wrap{width:var(--w); margin-inline:auto; padding:0 14px}
+    /* Bring the chat down close to characters */
+    main.wrap{
+      display:flex; flex-direction:column; min-height:78vh;
+      justify-content:flex-end;             /* push content to bottom */
+      gap:20px;                              /* space between chat and characters */
+    }
+    .tip{color:var(--muted); font-size:14px; text-align:center; text-shadow:0 1px 0 rgba(255,255,255,.7)}
+
+    /* Chat area */
+    .chat{
+      position:relative; display:grid; grid-template-columns:1fr 1fr; gap:28px;
+      align-content:center; padding:8px 0 0; /* smaller top padding so it's lower */
+    }
+    .bubble{
+      position:relative; background:var(--bubble); color:var(--bubble-ink);
+      border-radius: 24px;                   /* rounder */
+      padding:22px 26px;                     /* bigger padding */
+      min-height:110px;                      /* taller bubble */
+      box-shadow:var(--shadow);
+      font-size:clamp(18px, 2.6vw, 22px);    /* larger text */
+      line-height:1.55; display:flex; align-items:center;
+    }
+    .bubble p{margin:0}
+    .bubble[data-speaker="me"]{grid-column:2; grid-row:1; justify-self:end;}        /* Pishan on right */
+    .bubble[data-speaker="friend"]{grid-column:1; grid-row:1; justify-self:start;}  /* Sudu on left */
+    .bubble::after{content:""; position:absolute; bottom:-18px; width:24px; height:24px; background:var(--bubble); transform:rotate(45deg);}
+    .bubble[data-speaker="me"]::after{ right:28px; }
+    .bubble[data-speaker="friend"]::after{ left:28px; }
+    .bubble.active{ outline:2px solid transparent; box-shadow:0 0 0 8px var(--ring), var(--shadow);}
+    .caret{display:inline-block; width:.55ch;}
+
+    /* Characters row (near bottom) */
+    .chars{display:grid; grid-template-columns:1fr 1fr; align-items:end; gap:28px; padding:0 0 64px; /* margin-top removed so it sits near bottom */}
+    .ch{display:grid; justify-items:center; gap:10px}
+    .label{font-weight:700; letter-spacing:.2px; color:var(--muted); text-shadow:0 1px 0 rgba(255,255,255,.7)}
+    .avatar{width:160px; height:160px; display:grid; place-items:center} /* tiny bump so characters balance with bigger bubbles */
+    .avatar img{max-height:160px; width:auto; object-fit:contain; filter: drop-shadow(0 2px 6px rgba(0,0,0,.15)); }
+
+    /* Click anywhere layer */
+    .catcher{position:fixed; inset:0;}
+
+    /* Hearts */
+    .heart{position:fixed; font-size:18px; pointer-events:none; animation: drift 1.2s ease-out forwards}
+    @keyframes drift{ from{transform:translateY(0) scale(.9); opacity:.9} to{transform:translateY(-40px) scale(1.2); opacity:0} }
+
+    /* End card */
+    .endcover{position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.35); z-index:2000}
+    .endcover.show{display:flex}
+    .endcard{max-width:680px; width:min(92vw,680px); background:#fff; color:var(--ink); border-radius:22px; box-shadow:var(--shadow); border:1px solid rgba(0,0,0,.08); padding:clamp(18px,2.4vw,28px); text-align:center}
+    .endcard h2{margin:0 0 8px; font-size:clamp(22px,4.5vw,28px)}
+    .endcard p{margin:0 0 16px; color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <header class="wrap"><div class="tip">Click or tap anywhere to advance the conversation.</div></header>
+    <main class="wrap">
+      <section class="chat" aria-live="polite" aria-atomic="true">
+        <div id="bubbleMe" class="bubble" data-speaker="me"><p id="textMe">&nbsp;</p></div>
+        <div id="bubbleFriend" class="bubble" data-speaker="friend"><p id="textFriend">&nbsp;</p></div>
+      </section>
+      <section class="chars">
+        <figure class="ch" data-role="friend">
+          <div class="avatar" id="avatarFriend">
+            <picture><source srcset="S.webp" type="image/webp"/><img src="S.png" alt="Sudu"/></picture>
+          </div>
+          <figcaption class="label" id="nameFriend">Sudu</figcaption>
+        </figure>
+        <figure class="ch" data-role="me">
+          <div class="avatar" id="avatarMe">
+            <picture><source srcset="I.webp" type="image/webp"/><img src="I.png" alt="Pishan"/></picture>
+          </div>
+          <figcaption class="label" id="nameMe">Pishan</figcaption>
+        </figure>
+      </section>
+    </main>
+    <footer class="wrap" style="padding: 8px 0 22px"><div class="tip">made with love for your birthday</div></footer>
+  </div>
+  <div class="catcher" id="catcher" aria-hidden="true"></div>
+  <div id="endCover" class="endcover" aria-modal="true" role="dialog" aria-labelledby="endTitle" aria-describedby="endDesc">
+    <div class="endcard">
+      <h2 id="endTitle">Made for <span id="endFor"></span> by <span id="endBy"></span> ❤️</h2>
+      <p id="endDesc">You make ordinary days feel rare. Thanks for being my person.</p>
+      <div style="display:flex; justify-content:center"><button id="replay2" style="appearance:none;border:0;background:#111827;color:#fff;padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:700">Replay from start</button></div>
+    </div>
+  </div>
+  <script>
+    const meName = 'Pishan'; const friendName = 'Sudu';
+    const PAGES = [
+      { lines: [ { speaker: 'friend', text: '“How’s life treating you?”' }, { speaker: 'me', text: '“Like it’s mad I owe it money.”' } ]},
+      { lines: [ { speaker: 'friend', text: '“Hey, just checking if you’re alive… or if you’ve been kidnapped by your own laziness again.”' }, { speaker: 'me', text: '“Alive, yes. Thriving? No. But thanks for reminding me my kidnapper’s name is Netflix.”' } ]},
+      { lines: [ { speaker: 'me', text: '“Did you just wake up or is that your face’s default setting since birth?”' }, { speaker: 'friend', text: '“This is premium resting face. Limited edition.”' } ]},
+      { lines: [ { speaker: 'friend', text: '“You’re late again. I could’ve learned a new language in this time.”' }, { speaker: 'me', text: '“And yet here you are, still monolingual and roasting me.”' } ]},
+      { lines: [ { speaker: 'friend', text: '“Hi, I’m kind of worried for you. Please drop a text whenever you get time. And please take care of yourself — I’m always cheering for you🌻.”' }, { speaker: 'me', text: '“I will, promise. And it means the world knowing you’re rooting for me.”' } ]},
+      { lines: [ { speaker: 'friend', text: '“I wish I had a bag full of solutions for all your problems, best friend. My heart aches for your struggles.”' }, { speaker: 'me', text: '“And just hearing you say that makes me feel lighter. You’re my safe place.”' } ]},
+      { lines: [ { speaker: 'friend', text: '“Hey, it’s alright. You reached this level and that itself is a very good thing🌻. I’m proud of you, Pishan, always. Not a single day when I haven’t been proud of you🩷.”' }, { speaker: 'me', text: '“Hearing that from you means everything. You’ve been my strength more than you know.”' } ]},
+      { lines: [ { speaker: 'friend', text: '“You also please take care of yourself. No matter how tiring life gets, just don’t give up on your goals. I’m always cheering for you.”' }, { speaker: 'me', text: '“With you in my corner, giving up isn’t even an option.”' } ]},
+      { lines: [ { speaker: 'friend', text: '“Thank you Oshan for always being there for me. You’re one of my favorite things in this little life of mine🪻.”' }, { speaker: 'me', text: '“And you’re the part of my life I’d never trade for anything.”' } ]},
+      { lines: [ { speaker: 'friend', text: '“I guess in this life I can’t find a replacement for you. You’ll always be my bestest friend🪻. I ate khichdi today, and I wore mekhela chador for Saraswati Puja.”' }, { speaker: 'me', text: '“And I’m so lucky to be that irreplaceable one. Also—now I’m craving khichdi!”' } ]},
+      { lines: [ { speaker: 'friend', text: '“I’m tired, but I genuinely care for you and constantly worry about you. I guess you’re my bestest male friend.”' }, { speaker: 'me', text: '“And you’re my favorite person who still puts up with me.”' } ]},
+      { lines: [ { speaker: 'friend', text: '“You’ve always been so strong in front of everyone, but with me, you can be the little carefree boy that you are. I’ll care for you. — A genuine best friend message I want you to remember forever.”' }, { speaker: 'me', text: '“Then I’ll hold on to this forever, just like I hold on to you.”' } ]},
+      { lines: [ { speaker: 'friend', text: '“Now that I’m holding your hand, I’ll only leave it in front of my grave. I promise to never let you walk alone again.”' }, { speaker: 'me', text: '“Then I’m not letting go either — guess you’re stuck with me for life.”' } ]},
+      /* Page 14 */
+      { lines: [ { speaker: 'me', text: '“Happy birthday Sudu.”' }, { speaker: 'friend', text: '“Thanks Ishan.”' } ]}
+    ];
+
+    const bubbleMe=document.getElementById('bubbleMe'), bubbleFriend=document.getElementById('bubbleFriend'), textMe=document.getElementById('textMe'), textFriend=document.getElementById('textFriend');
+    const catcher=document.getElementById('catcher'), endCover=document.getElementById('endCover'), replay2=document.getElementById('replay2');
+    function getPageFromURL(){const p=new URLSearchParams(location.search).get('p');const n=parseInt(p||'1',10);return Number.isFinite(n)&&n>=1?n:1}
+    function goToPage(n){page=Math.max(1,Math.min(n,PAGES.length));const url=new URL(location);url.searchParams.set('p',String(page));history.pushState({},'',url);renderPage()}
+    window.addEventListener('popstate',()=>{page=getPageFromURL();renderPage()});
+    let page=getPageFromURL(), lineIndex=-1, typing=false, cancelTyping=false, pageDone=false;
+    function setActive(s){bubbleMe.classList.toggle('active',s==='me');bubbleFriend.classList.toggle('active',s==='friend')}
+    function typeInto(el,str){return new Promise(res=>{typing=true;cancelTyping=false;el.innerHTML='';let i=0;const c=document.createElement('span');c.className='caret';c.textContent='\u200A|';el.appendChild(c);const t=()=>{if(cancelTyping){el.textContent=str;typing=false;res();return} if(i<str.length){c.insertAdjacentText('beforebegin',str[i++]);setTimeout(t,18+Math.random()*22)} else {el.textContent=str;typing=false;res()}};t()})}
+    function currentLines(){const pg=PAGES[page-1];return pg?pg.lines:[]}
+    async function nextLine(){const lines=currentLines();if(pageDone){goNextPage();return} if(typing){cancelTyping=true;return} lineIndex++; if(lineIndex>=lines.length){pageDone=true;return} const {speaker,text}=lines[lineIndex]; setActive(speaker); if(speaker==='me'){await typeInto(textMe,text)} else {await typeInto(textFriend,text)}}
+    function clearBubbles(){textMe.textContent='\u00A0';textFriend.textContent='\u00A0'}
+    function renderPage(){const lines=currentLines();clearBubbles();lineIndex=-1;pageDone=false; if(lines.length===0){setActive('');endCover.classList.add('show');return} nextLine()}
+    let audioCtx;function initAudio(){try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)()}catch{}}function playClick(){if(!audioCtx)return;const c=audioCtx,o=c.createOscillator(),g=c.createGain();o.type='square';o.frequency.value=900;g.gain.setValueAtTime(0.0001,c.currentTime);g.gain.exponentialRampToValueAtTime(0.06,c.currentTime+0.01);g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+0.08);o.connect(g).connect(c.destination);o.start();o.stop(c.currentTime+0.09)}
+    document.addEventListener('click',initAudio,{once:true});document.addEventListener('keydown',initAudio,{once:true});
+    function goNextPage(){if(page<PAGES.length){playClick();goToPage(page+1)}else{playClick();setActive('');endCover.classList.add('show');catcher.style.pointerEvents='none'}}
+    function replay(){endCover.classList.remove('show');catcher.style.pointerEvents='';goToPage(1)}
+    catcher.addEventListener('click',nextLine);document.addEventListener('keydown',e=>{if([' ','Enter'].includes(e.key)){e.preventDefault();nextLine()}});replay2.addEventListener('click',replay);
+
+    // End card text: Made for you by love
+    const endForSpan = document.getElementById('endFor');
+    const endBySpan = document.getElementById('endBy');
+    if (endForSpan && endBySpan) { endForSpan.textContent = 'you'; endBySpan.textContent = 'love'; }
+
+    renderPage();
+  </script>
+</body>
+</html>
